@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # Author:  Francisca Cañellas
 # Email:   francisca.leonor.alejandra.c@gmail.com
-# Versión: DEV 0.0.1
+# Versión: DEV 0.0.2
 # Date:    22-05-2021
 
 import AdvancedHTMLParser
