@@ -3,12 +3,13 @@
 # Author:  Francisca Cañellas
 # Email:   francisca.leonor.alejandra.c@gmail.com
 # Versión: DEV 0.0.1
-# Date:    21-05-2021
+# Date:    22-05-2021
 
 import AdvancedHTMLParser
 import argparse
 import copy
 import requests
+from os import getenv
 from tqdm import tqdm
 from sys import argv
 
@@ -47,6 +48,20 @@ def _debug( show = False, msg = '', end = '\n' ):
     if show:
         print( msg, end = end )
 
+def getAudioFolderPath():
+    '''
+    Get audio folder path from Y2MATE_AUDIO_FOLDER
+    enviroment variable.
+    '''
+    return getenv( 'Y2MATE_AUDIO_FOLDER', '' )
+
+def getVideoFolderPath():
+    '''
+    Get video folder path from Y2MATE_VIDEO_FOLDER
+    enviroment variable.
+    '''
+    return getenv( 'Y2MATE_VIDEO_FOLDER', './' )
+
 def getVideoID( youtubeURL, verbose = False ):
     '''
     Parse the video ID from youtube url.
@@ -67,7 +82,12 @@ def getVideoID( youtubeURL, verbose = False ):
     if parse.netloc == 'youtu.be':
         vID = parse.path[1:]
     else:
-        vID = list( filter( lambda e: 'v=' in e,  parse.query.split( '&' ) ) )[0].replace( 'v=', '' )
+        vID = list(
+            filter(
+                lambda e: 'v=' in e,
+                parse.query.split( '&' )
+            )
+        )[0].replace( 'v=', '')
     # -------------------------------------------------------------------------
     
     _verbose( verbose, '[OK]' )
@@ -95,7 +115,9 @@ def getOptions( vID, verbose = False, debug = False ):
         'path':         '/mates/es19/analyze/ajax',
         'referer':      'https://www.y2mate.com/es/youtube/' + vID,
         'scheme':       'https',
-        'user-agent':   'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36'
+        'user-agent':   'Mozilla/5.0 (X11; Linux x86_64)' \
+            + 'AppleWebKit/537.36 (KHTML, like Gecko)' \
+            + 'Chrome/90.0.4430.93 Safari/537.36'
     }
     req = requests.Request( 'POST', optionsURL, headers = headers, data = data )
     prepared = req.prepare()
@@ -116,7 +138,9 @@ def getOptions( vID, verbose = False, debug = False ):
             kID = res.json()['result'].split('k__id = "')[1].split('"')[0]
 
             # GET VIDEO TITLE
-            title = parser.getElementsByClassName('caption')[0].children[0].innerText
+            title = parser.getElementsByClassName('caption')[0] \
+                    .children[0] \
+                    .innerText
             
             # GET OPTIONS
             options = {}
@@ -153,8 +177,10 @@ def parseOptions( tab ):
         # FILL OPTION DATA
         option = copy.deepcopy( optionSample )
         option['size']    = tdList[1].innerText
-        option['type']    = tdList[2].getChildren()[0].getAttribute('data-ftype')
-        option['quality'] = tdList[2].getChildren()[0].getAttribute('data-fquality')
+        option['type']    = tdList[2].getChildren()[0] \
+            .getAttribute('data-ftype')
+        option['quality'] = tdList[2].getChildren()[0] \
+            .getAttribute('data-fquality')
         
         option['quality'] = int( option['quality'].replace('p', '') )
         options.append( option )
@@ -166,7 +192,8 @@ def selectQuality( options, format, quality ):
     Select quality according given parameters.
     
     When format is not available the program exit.
-    If quality is None, then max value is returned. Otherwise is the closest one.
+    If quality is None, then max value is returned.
+    Otherwise is the closest one.
     '''
     if format not in options:
         exit( '[Error]: Format specified not available!' )
@@ -185,7 +212,10 @@ def selectQuality( options, format, quality ):
         
         return quality
 
-def downloadFile( kID, vID, fileName = '', format = None, quality = None, debug = False, verbose = False):
+def downloadFile(
+        kID, vID, avoidEnvSavePath = False, fileName = '',
+        format = None, quality = None, debug = False, verbose = False
+    ):
     '''
     Download a file from youtube with y2mate.com API
     Parameters:
@@ -226,7 +256,9 @@ def downloadFile( kID, vID, fileName = '', format = None, quality = None, debug 
         'origin':         'https://wwwy2mate.com',
         'pragma':         'no-cache',
         'referer':        'https://y2mate.com/es/youtube/' + vID,
-        'user-agent':     'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36',
+        'user-agent':     'Mozilla/5.0 (X11; Linux x86_64) ' \
+            + ' AppleWebKit/537.36 ' \
+            + '(KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36',
         'x-request-with': 'XMLHttpRequest'
     } 
     
@@ -252,8 +284,20 @@ def downloadFile( kID, vID, fileName = '', format = None, quality = None, debug 
         # ---------------------------------------------------------------------
         _verbose( verbose, 'Status: Downloading file...', end = '' )
         
+        # SET FILE PATH TO CURRENT DIRECTORY
+        if avoidEnvSavePath:
+            filePath = './'
+        # CHOSE FILE PATH FROM ENVIROMENT VARIABLES
+        else:
+            # AUDIO FILES
+            if format == 'mp3':
+                saveDir = getAudioFolderPath()
+            # VIDEO FILES
+            else:
+                saveDir = getVideoFolderPath()
+            filePath = saveDir + fileName
+
         chunk = 1024
-        filePath = r'./' + fileName
 
         res = requests.get( fileLink, stream = True )
         fileSize = int( res.headers.get( 'content-length', 0 ) )
@@ -261,7 +305,8 @@ def downloadFile( kID, vID, fileName = '', format = None, quality = None, debug 
         # SAVE FILE STREAM
         # ---------------------------------------------------------------------
         with open( filePath, 'wb' ) as f, tqdm(
-            desc=fileName, total = fileSize, unit = 'iB', unit_scale = True, unit_divisor = chunk
+            desc=fileName, total = fileSize, unit = 'iB', unit_scale = True,
+            unit_divisor = chunk
         ) as bar:
             for data in res.iter_content( chunk_size = chunk ):
                 size = f.write( data )
@@ -276,19 +321,65 @@ def downloadFile( kID, vID, fileName = '', format = None, quality = None, debug 
     ###########################################################################
 
 
-# CLI ARGUMENTS
-# ------------------------------------------------------------------------------------------------------------------------
-ap = argparse.ArgumentParser( description = """Download Youtube video or audio""" )
+# CLI PARAMETERS
+# ------------------------------------------------------------------------------
+ap = argparse.ArgumentParser(
+    description = """Download Youtube video or audio"""
+)
 ap.version = '0.0.1'
-ap.add_argument( '-v', '--version', action = 'version', help = 'Show version of this program.' )
-ap.add_argument( '-d', '--debug', action = 'store_true', dest = 'isDebug', help = 'Show debug info.'  )
-ap.add_argument( '-ve', '--verbose', action = 'store_true', dest = 'isVerbose', help = 'Show process status and info.' )
-ap.add_argument( '-f', '--format', action = 'store', dest = 'format', choices = [ 'mp3', 'mp4' ], \
-    required = True, default = 'mp3', help = 'Specify output format.' )
-ap.add_argument( '-q', '--quality', action = 'store', dest = 'quality', type = int, help = 'Specify output quality.' )
-ap.add_argument( '-sio', '--show-info-only', action = 'store_true', dest = 'showInfoOnly', \
+# VERSION
+# ==============================================================================
+ap.add_argument( '-v', '--version', action = 'version', \
+    help = 'Show version of this program.' )
+# ==============================================================================
+
+# DEBUG
+# ==============================================================================
+ap.add_argument( '-d', '--debug', action = 'store_true', dest = 'isDebug', \
+    help = 'Show debug info.'  )
+# ==============================================================================
+
+# VERBOSE
+# ==============================================================================
+ap.add_argument( '-ve', '--verbose', action = 'store_true', \
+    dest = 'isVerbose', help = 'Show process status and info.' )
+# ==============================================================================
+
+# FORMAT
+# ==============================================================================
+ap.add_argument( '-f', '--format', action = 'store', dest = 'format', \
+    choices = [ 'mp3', 'mp4' ], required = True, default = 'mp3', \
+    help = 'Specify output format.' )
+# ==============================================================================
+
+# QUALITY
+# ==============================================================================
+ap.add_argument( '-q', '--quality', action = 'store', dest = 'quality', \
+        type = int, help = 'Specify output quality.' )
+# ==============================================================================
+# SHOW INFO ONLY
+# ==============================================================================
+ap.add_argument( '-sio', action = 'store_true', dest = 'showInfoOnly', \
     help = 'Only get and show info about format and qualities availables.' )
+# ==============================================================================
+
+# SHOW FORMAT ONLY
+# ==============================================================================
+ap.add_argument( '-sfo', action = 'store_true', dest = 'showFormatOnly', \
+    help = 'Show specified format info Only.')
+# ==============================================================================
+
+# AVOID SAVE FILE PATH FROM ENVIROMENT VARIABLES
+# ==============================================================================
+ap.add_argument( '-aspev', action = 'store_true', dest = 'avoidEnvSavePath', \
+    help = 'Avoid save file path from enviroment vars.' )
+# ==============================================================================
+
+# URL (POSITIONAL ARGUMENT)
+# ==============================================================================
 ap.add_argument( 'url', nargs = '?', action = 'store' )
+# ==============================================================================
+
 args = ap.parse_args()
 # ------------------------------------------------------------------------------------------------------------------------
 
@@ -298,7 +389,10 @@ while True:
     result  = getOptions( vID, debug = args.isDebug, verbose = args.isVerbose )
 
     if result == None:
-        _verbose( args.isVerbose, 'Status: Error getting options... restarting process!' )
+        _verbose(
+                args.isVerbose,
+                'Status: Error getting options... restarting process!'
+        )
         continue
     
     # SHOW INFO ONLY
@@ -306,26 +400,51 @@ while True:
     if args.showInfoOnly:
         q_postFix = { 'mp3': 'kbps', 'mp4': 'p' }
         f_separator = { 'mp3': '   ', 'mp4': '\t   ' }
-
-        for format in result['options'].keys():
-            print('\n {}\n----------------------'.format( format.capitalize() ))
-            print(' Quality | Size')
+        
+        # SHOW FORMAT ONLY
+        # ------------------------------------
+        if args.showFormatOnly:
+            formats = [ args.format ]
+        else:
+            formats = result['options'].keys()
+        # ------------------------------------
+        
+        # PROCESS FORMATS
+        for format in formats:
+            output = '\n {}\n----------------------'.format(
+                format.capitalize()
+            )
+            output += '\n Quality | Size'
 
             for details in result['options'][format]:
                 # FIX UNKNOWN SIZE
                 if len( details['size'].split() ) == 1:
-                    details['size'] = 'UNKNOWN'
-
-                print(' {}{}{}'.format(
+                    continue
+                output += '\n {}{}{}'.format(
                     str(details['quality']).strip() + q_postFix[format],
                     f_separator[format],
                     details['size'].strip()
-                ))
-            print('----------------------')
+                )
+            output += '\n----------------------'
+            print( output )
     # -------------------------------------------------------------------------
                
     else:
-        quality = selectQuality( result['options'], args.format, args.quality )
+        quality = selectQuality(
+            result['options'],
+            args.format,
+            args.quality
+        )
         fileName = '{}.{}'.format( result['title'], args.format )
-        downloadFile( result['kID'], vID, fileName = fileName, format = args.format, quality = quality, debug = args.isDebug, verbose = args.isVerbose ) 
+
+        downloadFile(
+            result['kID'],
+            vID,
+            avoidEnvSavePath = args.avoidEnvSavePath,
+            fileName         = fileName,
+            format           = args.format,
+            quality          = quality,
+            debug            = args.isDebug,
+            verbose          = args.isVerbose
+        ) 
     break
