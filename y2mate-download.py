@@ -146,6 +146,15 @@ def getOptions( vID, verbose = False, debug = False ):
             options = {}
             options['mp4'] = parseOptions( parser.getElementById('mp4') )
             options['mp3'] = parseOptions( parser.getElementById('mp3') )
+            options['m4a'] = parseOptions( parser.getElementById('audio') )
+            
+            # FILTER AUDIO MP3 ITEMS (THERE PROBABLY REPEATED)
+            options['m4a'] = list(
+                filter(
+                    (lambda e: e['type'] != 'mp3'),
+                    options['m4a']
+                )
+            )
 
             _verbose( verbose, '[OK]' )
             return { 'kID': kID, 'options': options, 'title': title }
@@ -160,28 +169,37 @@ def parseOptions( tab ):
     Process tab options table on result HTML when
     user paste video on download textbox at y2mate.com
     '''
-    # PARSE MP4 DATA
-    mp4Parser = AdvancedHTMLParser.AdvancedHTMLParser()
-    mp4Parser.parseStr( tab[0].innerHTML )
+    # PARSE DATA
+    parser = AdvancedHTMLParser.AdvancedHTMLParser()
+    parser.parseStr( tab[0].innerHTML )
     
-    # PREPARE FOR SAVE MP4 DATA
+    # PREPARE FOR SAVE DATA
     optionSample = { 'quality': None, 'size': None, 'type': None }
     options = []
     
     # PROCESS DATA
-    for tr in mp4Parser.getElementsByTagName('tr')[1:-1]:
+    for tr in parser.getElementsByTagName('tr')[1:-1]:
         trParser = AdvancedHTMLParser.AdvancedHTMLParser()
         trParser.parseStr( tr.innerHTML )
+
         tdList = trParser.getElementsByTagName('td')
-        
+
         # FILL OPTION DATA
         option = copy.deepcopy( optionSample )
         option['size']    = tdList[1].innerText
-        option['type']    = tdList[2].getChildren()[0] \
+        # WHEN AUDIO TAB IS PROCESSED THERE IS BUTTON BEFORE A ELEMENT
+        # ------------------------------------------------------------
+        if len( tdList[2].getChildren() ) == 2:
+            index = 1
+        else:
+            index = 0
+        # ------------------------------------------------------------       
+        option['type']    = tdList[2].getChildren()[index] \
             .getAttribute('data-ftype')
-        option['quality'] = tdList[2].getChildren()[0] \
+
+        option['quality'] = tdList[2].getChildren()[index] \
             .getAttribute('data-fquality')
-        
+
         option['quality'] = int( option['quality'].replace('p', '') )
         options.append( option )
 
@@ -291,7 +309,7 @@ def downloadFile(
         # CHOSE FILE PATH FROM ENVIROMENT VARIABLES
         else:
             # AUDIO FILES
-            if format == 'mp3':
+            if format in [ 'mp3', 'm4a' ]:
                 saveDir = getAudioFolderPath()
             # VIDEO FILES
             else:
@@ -317,6 +335,8 @@ def downloadFile(
             for data in res.iter_content( chunk_size = chunk ):
                 size = f.write( data )
                 bar.update( size )
+        
+        print('Saved at \'{}\'...'.format( filePath ))
         # ---------------------------------------------------------------------
        
         _verbose( verbose, '[OK]' )
@@ -354,7 +374,7 @@ ap.add_argument( '-ve', '--verbose', action = 'store_true', \
 # FORMAT
 # ==============================================================================
 ap.add_argument( '-f', '--format', action = 'store', dest = 'format', \
-    choices = [ 'mp3', 'mp4' ], required = True, default = 'mp3', \
+    choices = [ 'm4a', 'mp3', 'mp4' ], required = True, default = 'mp3', \
     help = 'Specify output format.' )
 # ==============================================================================
 
@@ -381,76 +401,105 @@ ap.add_argument( '-cd', action = 'store_true', dest = 'useCurrentDir', \
     help = 'Download files on current dir.' )
 # ==============================================================================
 
+# MP3 CONVERT
+# ==============================================================================
+ap.add_argument( '--mp3-convert', action = 'store_true', dest = 'mp3Convert', \
+    help = 'Use Y2mate\'s youtube MP3 converter service' )
+# ==============================================================================
+
 # URL (POSITIONAL ARGUMENT)
 # ==============================================================================
 ap.add_argument( 'url', nargs = '?', action = 'store' )
 # ==============================================================================
 
 args = ap.parse_args()
-# ------------------------------------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 # IF SOME RESULTS GIVE NONE START AGAIN
 while True:
-    vID     = getVideoID( args.url, verbose = args.isVerbose )
-    result  = getOptions( vID, debug = args.isDebug, verbose = args.isVerbose )
+    try:
+        # CHECK MP3 CONVERT AND FORMAT OPTION
+        if args.format != 'mp3' and args.mp3Convert:
+            _verbose( args.isVerbose, 'Status: CLI wrong parameters!' )
+            exit( 'You must specified \'-f mp3\' to use \'--mp3-convert\' option!' )
 
-    if result == None:
-        _verbose(
-                args.isVerbose,
-                'Status: Error getting options... restarting process!'
+        vID     = getVideoID( args.url, verbose = args.isVerbose )
+        result  = getOptions(
+            vID, debug = args.isDebug, verbose = args.isVerbose
         )
-        continue
-    
-    # SHOW INFO ONLY
-    # -------------------------------------------------------------------------
-    if args.showInfoOnly:
-        q_postFix = { 'mp3': 'kbps', 'mp4': 'p' }
-        f_separator = { 'mp3': '   ', 'mp4': '\t   ' }
-        
-        # SHOW FORMAT ONLY
-        # ------------------------------------
-        if args.showFormatOnly:
-            formats = [ args.format ]
-        else:
-            formats = result['options'].keys()
-        # ------------------------------------
-        
-        # PROCESS FORMATS
-        for format in formats:
-            output = '\n {}\n----------------------'.format(
-                format.capitalize()
+
+        if result == None:
+            _verbose(
+                    args.isVerbose,
+                    'Status: Error getting options... restarting process!'
             )
-            output += '\n Quality | Size'
+            continue
+        
+        # SHOW INFO ONLY
+        # ----------------------------------------------------------------------
+        if args.showInfoOnly:
+            q_postFix = { 'audio': 'kbps', 'mp4': 'p' }
+            f_separator = { 'audio': '   ', 'mp4': '\t   ' }
 
-            for details in result['options'][format]:
-                # FIX UNKNOWN SIZE
-                if len( details['size'].split() ) == 1:
-                    continue
-                output += '\n {}{}{}'.format(
-                    str(details['quality']).strip() + q_postFix[format],
-                    f_separator[format],
-                    details['size'].strip()
+            # SHOW FORMAT ONLY
+            # ------------------------------------
+            if args.showFormatOnly:
+                formats = [ args.format ]
+            else:
+                formats = result['options'].keys()
+            # ------------------------------------
+            
+            # PROCESS FORMATS
+            for format in formats:
+                # CONVERT FORMAT TO SET KEY ACCESIBLE
+                # ------------------------------------
+                if format in [ 'audio', 'mp3' ]:
+                    set_k = 'audio'
+                else:
+                    set_k = 'mp4'
+                # ------------------------------------
+
+                output = '\n {}\n----------------------'.format(
+                    format.capitalize()
                 )
-            output += '\n----------------------'
-            print( output )
-    # -------------------------------------------------------------------------
-               
-    else:
-        quality = selectQuality(
-            result['options'],
-            args.format,
-            args.quality
-        )
-        fileName = '{}.{}'.format( result['title'], args.format )
+                output += '\n Quality | Size'
 
-        downloadFile(
-            result['kID'],
-            vID,
-            useCurrentDir = args.useCurrentDir,
-            fileName      = fileName,
-            format        = args.format,
-            quality       = quality,
-            debug         = args.isDebug,
-            verbose       = args.isVerbose
-        ) 
+                for details in result['options'][format]:
+                    # FIX UNKNOWN SIZE
+                    # -------------------------------------
+                    if len( details['size'].split() ) == 1:
+                        continue
+                    # -------------------------------------
+
+                    output += '\n {}{}{}'.format(
+                        str(details['quality']).strip() + q_postFix[set_k],
+                        f_separator[set_k],
+                        details['size'].strip()
+                    )
+                output += '\n----------------------'
+                print( output )
+        # ----------------------------------------------------------------------
+                   
+        else:
+            quality = selectQuality(
+                result['options'],
+                args.format,
+                args.quality
+            )
+            fileName = '{}.{}'.format( result['title'], args.format )
+
+            downloadFile(
+                result['kID'],
+                vID,
+                useCurrentDir = args.useCurrentDir,
+                fileName      = fileName,
+                format        = args.format,
+                quality       = quality,
+                debug         = args.isDebug,
+                verbose       = args.isVerbose
+            ) 
+    except KeyboardInterrupt:
+        _verbose( args.isVerbose, 'Status: Task cancelled by user!' )
+        exit( '\nCacelled by user!' )
+
     break
