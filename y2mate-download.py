@@ -5,7 +5,7 @@ import AdvancedHTMLParser
 import argparse
 import copy
 import requests
-from os import getenv
+from os import getenv, path, remove
 from tqdm import tqdm
 from sys import argv, version_info
 
@@ -414,6 +414,31 @@ def downloadFile(
             _verbose( verbose, '[ERROR]')
             exit( '[Server Error]: File not found!' )
         
+        # ASK FOR FILE OVERWRITE
+        # ---------------------------------------------------------------------
+        if path.exists( filePath ) and path.isfile( filePath ):
+            while True:
+                answer =  input(
+                    'File \'{}\' already exists, overwride? [y/n]: '.format( filePath )
+                ).lower()
+                
+                if not answer in [ 'y', 'n' ]:
+                    continue
+                else:
+                    break
+
+            if answer == 'y':
+                remove( filePath )
+                print( 'File \'{}\' deleted!'.format( filePath ) )
+            # CHANGE FILE NAME FOR NOT OVERWRITE
+            else:
+                _fileName = fileName
+                _path = filePath.split('/') 
+                filePath = '/'.join( _path[:-1] ) + '/2_' + _path[-1] 
+                fileName = '2_' + fileName
+                print( 'File \'{}\' renamed to \'{}\''.format( _fileName, fileName ) )
+        # ---------------------------------------------------------------------
+
         # SAVE FILE STREAM
         # ---------------------------------------------------------------------
         fileSize = int( res.headers.get( 'content-length', 0 ) )
