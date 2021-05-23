@@ -651,7 +651,7 @@ while True:
                         details['size'].strip()
                     )
                 output += '\n {}\n'.format( '-' * 22 )
-                print( output )
+            print( output )
         # ----------------------------------------------------------------------
                    
         else:
