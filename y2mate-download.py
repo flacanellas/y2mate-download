@@ -7,13 +7,14 @@ import copy
 import requests
 from os import getenv
 from tqdm import tqdm
-from sys import argv
+from sys import argv, version_info
 
 # AUTHOR AND PROJECT INFO
 # ----------------------------------------------------
 __project = {
-    'title':   'Y2mate Downloader',
-    'version': 'v-dev-0.0.2'
+    'title':        'Y2mate Downloader',
+    'version':      'v-dev-0.0.2',
+    'pyMinVersion': 3.9
 }
 __author = {
     'name':  'Francisca Cañellas',
@@ -22,7 +23,34 @@ __author = {
 }
 # ----------------------------------------------------
 
-def print_HTTP( req ):
+def checkVersion( interrupt = False, verbose = False ):
+    '''
+    Check min python required version or exit
+    '''
+    v = float(
+        '{}.{}{}'.format(
+            str(version_info.major),
+            str(version_info.minor),
+            str(version_info.micro)
+        )
+    )
+
+    if  v < __project['pyMinVersion']:
+        outMsg = 'Python {} or above is required!'.format(
+            __project['pyMinVersion']
+        )
+        _verbose( verbose, outMsg )
+        
+        # INTERRUPT OR RETURN ERROR MSG
+        if interrupt:
+            return { 'status': False, 'msg': outMsg }
+        else:
+            exit( outMsg )
+    # NO ERROR REPORTED
+    else:
+        return { 'status': True }
+
+def printHTTP( req ):
     '''
     Debug HTTP prepared request
     '''
@@ -34,7 +62,7 @@ def print_HTTP( req ):
         '-----------STOP REQUEST------------'
     )
 
-def print_HTTP_RESPONSE( res, printContent = False ):
+def printHTTPResponse( res, printContent = False ):
     '''
     Debug HTTP response
     '''
@@ -138,7 +166,7 @@ def getOptions( vID, verbose = False, debug = False, mp3Convert = False ):
     req = requests.Request( 'POST', optionsURL, headers = headers, data = data )
     prepared = req.prepare()
     
-    _debug( debug, print_HTTP( prepared ) )
+    _debug( debug, printHTTP( prepared ) )
     _verbose( verbose, 'Status: Getting download available options...', end='' )
 
     s = requests.Session()
@@ -339,7 +367,7 @@ def downloadFile(
     req = requests.Request( 'POST', getLinkURL, headers = headers, data = data )
     prepared = req.prepare()
 
-    _debug( debug, print_HTTP( prepared ) )
+    _debug( debug, printHTTP( prepared ) )
     _verbose( verbose, 'Status: Getting file download link...', end = '' ) 
 
     s = requests.Session()
@@ -401,27 +429,29 @@ def downloadFile(
 
     ###########################################################################
 
-def getProjectInfo():
+def getProjectInfo( indentChar = ' ' ):
     '''
     Get Project info in string
     '''
-    # SET AUTHOR AND VERSION DATA
-    # -------------------------------------------------------
-    return  '\n {}\n {} {}\n {}\n by {} ({})\n {}\n'.format(
-        '-' * 29,
-        __project['title'],
-        __project['version'],
-        '-' * 62,
-        __author['name'],
-        __author['email'],
-        '-' * 62
+    return  (
+        '\n{i}{_1}\n{i}{title} {version}\n' \
+        + '{i}{_2}\n{i}by {name} ({email})\n{i}{_3}\n'
+    ).format(
+            _1 = '-' * 29,
+            title = __project['title'],
+            version = __project['version'],
+            _2 = '-' * 62,
+            name = __author['name'],
+            email = __author['email'],
+            _3 = '-' * 62,
+            i = indentChar
     )
-    # -------------------------------------------------------
 
 
 # CLI PARAMETERS
 # ------------------------------------------------------------------------------
 ap = argparse.ArgumentParser(
+    add_help = False,
     description = 'Download or Convert to MP3 a Youtube Video'
 )
 ap.version = '0.0.1'
@@ -445,8 +475,9 @@ ap.add_argument( '-ve', '--verbose', action = 'store_true', \
 
 # FORMAT
 # ==============================================================================
-ap.add_argument( '-f', '--format', action = 'store', dest = 'format', \
-    choices = [ 'm4a', 'mp3', 'mp4' ], required = True, default = 'mp3', \
+formatExclusiveGroup = ap.add_mutually_exclusive_group( required = True )
+formatExclusiveGroup.add_argument( '-f', '--format', action = 'store', dest = 'format', \
+    choices = [ 'm4a', 'mp3', 'mp4' ], default = 'mp3', \
     help = 'Specify output format.' )
 # ==============================================================================
 
@@ -479,9 +510,20 @@ ap.add_argument( '--mp3-convert', action = 'store_true', dest = 'mp3Convert', \
     help = 'Use Y2mate\'s youtube MP3 converter service' )
 # ==============================================================================
 
+# OVERRIDE HELP COMMAND
+# ==============================================================================
+formatExclusiveGroup.add_argument( '-h', '--help', action = 'store_true', dest = 'showHelp', \
+    help = 'Show this help message and exit.')
+# ==============================================================================
+
 # URL (POSITIONAL ARGUMENT)
 # ==============================================================================
 ap.add_argument( 'url', nargs = '?', action = 'store' )
+# ==============================================================================
+
+# CHECK VERSION
+# ==============================================================================
+checkVersion( interrupt = True )
 # ==============================================================================
 
 args = ap.parse_args()
@@ -490,6 +532,12 @@ args = ap.parse_args()
 # IF SOME RESULTS GIVE NONE START AGAIN
 while True:
     try:
+        # CHECK HELP
+        if args.showHelp:
+            print( getProjectInfo( indentChar = '' )[1:] )
+            ap.print_help() 
+            exit()
+
         # CHECK MP3 CONVERT AND FORMAT OPTION
         if args.format != 'mp3' and args.mp3Convert:
             _verbose( args.isVerbose, 'Status: CLI wrong parameters!' )
