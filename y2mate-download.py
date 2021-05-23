@@ -13,7 +13,7 @@ from sys import argv, version_info
 # ----------------------------------------------------
 __project = {
     'title':        'Y2mate Downloader',
-    'version':      'v-dev-0.0.3',
+    'version':      'v-dev-0.0.4',
     'pyMinVersion': 3.9
 }
 __author = {
