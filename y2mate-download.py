@@ -14,7 +14,7 @@ from sys import argv, version_info
 __project = {
     'title':        'Y2mate Downloader',
     'version':      'v-dev-0.0.4',
-    'pyMinVersion': 3.9
+    'pyMinVersion': 3.8
 }
 __author = {
     'name':  'Francisca Cañellas',
@@ -554,7 +554,10 @@ ap.add_argument( 'url', nargs = '?', action = 'store' )
 
 # CHECK VERSION
 # ==============================================================================
-checkVersion( interrupt = True )
+result = checkVersion( interrupt = True )
+
+if not result['status']:
+    exit( result['msg'] )
 # ==============================================================================
 
 args = ap.parse_args()
