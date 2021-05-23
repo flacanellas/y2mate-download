@@ -314,7 +314,7 @@ def selectQuality( options, format, quality ):
         return quality
 
 def downloadFile(
-        kID, vID, useCurrentDir = False, fileName = '',
+        kID, vID, mp3Convert = False, useCurrentDir = False, fileName = '',
         format = None, quality = None, debug = False, verbose = False
     ):
     '''
@@ -335,10 +335,16 @@ def downloadFile(
 
     if format == None or quality == None:
         return None
-    
+
     # GET DOWNLOAD LINK
     ###########################################################################
-    getLinkURL = 'https://www.y2mate.com/mates/es/convert'
+    if mp3Convert:
+        print( 'This may take a while, please be patient!\n' )
+
+        getLinkURL = 'https://www.y2mate.com/mates/mp3Convert'
+    else:
+        getLinkURL = 'https://www.y2mate.com/mates/es/convert'
+    
     data = {
         'type':     'youtube',
         '_id':      kID,
@@ -352,7 +358,7 @@ def downloadFile(
     headers = {
         'authority':      'www.y2mate.com',
         'method':         'POST',
-        'path':           'mates/es/convert',
+        'path':           getLinkURL.split('.com')[1],
         'scheme':         'https',
         'content-type':   'application/x-www-form-urlencoded; charset=UTF-8',
         'origin':         'https://wwwy2mate.com',
@@ -363,7 +369,7 @@ def downloadFile(
             + '(KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36',
         'x-request-with': 'XMLHttpRequest'
     } 
-    
+
     req = requests.Request( 'POST', getLinkURL, headers = headers, data = data )
     prepared = req.prepare()
 
@@ -399,7 +405,7 @@ def downloadFile(
                 saveDir = getVideoFolderPath()
             filePath = saveDir + fileName
 
-        chunk = 1024
+        chunk = 1024 
 
         res = requests.get( fileLink, stream = True )
         
@@ -632,6 +638,7 @@ while True:
                 result['kID'],
                 vID,
                 useCurrentDir = args.useCurrentDir,
+                mp3Convert    = args.mp3Convert,
                 fileName      = fileName,
                 format        = args.format,
                 quality       = quality,
