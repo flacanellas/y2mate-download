@@ -384,6 +384,9 @@ def downloadFile(
         parser.parseStr( res.json()['result'] )
 
         # GET DOWNLOAD LINK
+        if len( parser.getElementsByTagName('a') ) == 0:
+            exit( '[Error] something is wrong with download... try again!' )
+        
         fileLink = parser.getElementsByTagName('a')[0].href
 
         _verbose( verbose, '[OK]' )
