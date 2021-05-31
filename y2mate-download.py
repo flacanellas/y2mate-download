@@ -394,7 +394,15 @@ def downloadFile(
         # DOWNLOAD FILE
         # ---------------------------------------------------------------------
         _verbose( verbose, 'Status: Downloading file...', end = '' )
-        
+
+        # REMOVE CHARACTERS
+        fileName = fileName.replace( '/', '' ) \
+                .replace( '[', '' ) \
+                .replace( ']', '' ) \
+                .replace( "'", '' )
+        (name, ext) = fileName.split('.')
+        fileName = name.strip() + '.' + ext
+
         # SET FILE PATH TO CURRENT DIRECTORY
         if useCurrentDir:
             filePath = './' + fileName
@@ -444,6 +452,7 @@ def downloadFile(
 
         # SAVE FILE STREAM
         # ---------------------------------------------------------------------
+        filePath = path.normpath( filePath )
         fileSize = int( res.headers.get( 'content-length', 0 ) )
         with open( filePath, 'wb' ) as f, tqdm(
             desc=fileName, total = fileSize, unit = 'iB', unit_scale = True,
