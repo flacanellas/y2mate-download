@@ -400,8 +400,10 @@ def downloadFile(
                 .replace( '[', '' ) \
                 .replace( ']', '' ) \
                 .replace( "'", '' )
-        (name, ext) = fileName.split('.')
-        fileName = name.strip() + '.' + ext
+        fileName = fileName.split('.')
+        ext  = fileName.pop()
+        name = '.'.join(fileName).strip()
+        fileName = name + '.' + ext 
 
         # SET FILE PATH TO CURRENT DIRECTORY
         if useCurrentDir:
