@@ -8,10 +8,11 @@ class Request:
     '''Simple wrapper for make HTTP requests'''
 
     def __init__(
-            self, method = 'GET', url = '', headers = {}, session = None, \
-            debug = False \
+            self, method = 'GET', url = '', headers = {}, data = {}, \
+            session = None, debug = False \
         ):
         self.__allowedMethods = ['GET', 'POST']
+        self.__data     = data
         self.__debug    = debug
         self.__headers  = headers
         self.__method   = method
@@ -19,6 +20,14 @@ class Request:
         self.__url      = url
         self.request  = None
         self.response = None
+    
+    def addData(self, key = '', value = ''):
+        '''Add data item to data dict'''
+
+        if key == '' or value == '':
+            print('[Error] Argument cannot be empty!')
+
+        self.__data.update({ key: value })
 
     def addHeader(self, key = '', value = ''):
         '''Add header to this request'''
@@ -79,7 +88,7 @@ class Request:
         print(debugText)
 
     def do(self):
-        '''Do request'''
+        '''Do request and return the response'''
 
         if not self.__method.upper() in self.__allowedMethods:
             print( '[ERROR] Method \'{}\' not allowed!'.format(method) )
@@ -91,8 +100,17 @@ class Request:
             self.__session = requests.Session()
         
         # PREPARE REQUEST
-        self.request = requests.Request( self.__method, self.__url, \
-            self.__headers )
+        # ----------------------------------------------------------------------
+        # POST REQUEST
+        if self.__method == 'POST':
+            self.request = requests.Request( self.__method, self.__url, \
+                self.__headers, data = self.__data )
+        # GET REQUEST
+        else:
+            self.request = requests.Request( self.__method, self.__url, \
+                self.__headers )
+        # ----------------------------------------------------------------------
+
         self.__preparedRequest = self.request.prepare()
 
         if self.__debug:
@@ -104,6 +122,8 @@ class Request:
 
         if self.__debug:
             self.debugResponse()
+
+        return self.response
 
     def getCookies(self, cookies = []):
         '''Get cookie from HTTP request's response'''
@@ -122,3 +142,8 @@ class Request:
             print('[Error] You do the request first!')
 
         return dict( self.response.cookies )
+
+    def getResponseHeader(self, key):
+        '''Get header from response'''
+
+        return self.response.headers[key]

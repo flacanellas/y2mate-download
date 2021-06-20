@@ -1,10 +1,18 @@
 #!/usr/bin/python3.8
 # -*- coding: utf-8 -*-
 
+"""
+Author: Francisca Cañellas
+Date: 15-05-2021
+Email: francisca.leonor.alejandra.c@gmail.com
+"""
+
 import AdvancedHTMLParser
 import argparse
 import copy
 import requests
+from RequestUtils import *
+from Request import Request
 from os import getenv, path, remove
 from tqdm import tqdm
 from sys import argv, version_info
@@ -149,29 +157,21 @@ def getOptions( vID, verbose = False, debug = False, mp3Convert = False ):
         'ajax':   1
     }
     headers = {
-        'authority':    'www.2mate.com',
-        'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'authority':    urlGetNetloc( optionsURL ),
+        'content-type': getContentType( 'form' ) ,
         'method':       'POST',
-        'path':         '/mates/es19/analyze/ajax',
+        'path':         urlGetPath( optionsURL ),
         'referer':      'https://www.y2mate.com/es/youtube/' + vID,
-        'scheme':       'https',
-        'user-agent':   'Mozilla/5.0 (X11; Linux x86_64)' \
-            + 'AppleWebKit/537.36 (KHTML, like Gecko)' \
-            + 'Chrome/90.0.4430.93 Safari/537.36'
+        'scheme':       urlGetScheme( optionsURL ),
+        'user-agent':   getChromeAgent() 
     }
-
-    if mp3Convert:
-        headers['path'] = '/mates/en31/mp3/ajax'
-
-    req = requests.Request( 'POST', optionsURL, headers = headers, data = data )
-    prepared = req.prepare()
-    
-    _debug( debug, printHTTP( prepared ) )
+    req = Request(
+        url = optionsURL, method = 'POST', headers = headers, data = data, \
+        debug = debug
+    )
+    res = req.do()
     _verbose( verbose, 'Status: Getting download available options...', end='' )
-
-    s = requests.Session()
-    res = s.send( prepared, verify=True ) 
-
+    
     if res.status_code == 200:
         # GET AVAILABLE OPTIONS
         if res.headers['Content-Type'] == 'application/json':
@@ -236,9 +236,10 @@ def parseYoutubeDownloaderOptions( parser, verbose ):
     options['mp3'] = parseOptions( parser.getElementById('mp3') )
     options['m4a'] = parseOptions( parser.getElementById('audio') )
 
-    # CHECK FOR MP3 NO DATA
-    if len(options['mp3']) == 0:
-        del options['mp3']
+    # CHECK FOR NO DATA
+    for k in list( options.keys() ):
+        if len( options[k] ) == 0:
+            del options[k]
 
     # FILTER AUDIO MP3 ITEMS (THERE PROBABLY REPEATED)
     options['m4a'] = list(
