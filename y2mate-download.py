@@ -58,30 +58,6 @@ def checkVersion( interrupt = False, verbose = False ):
     else:
         return { 'status': True }
 
-def printHTTP( req ):
-    '''
-    Debug HTTP prepared request
-    '''
-    return '{}\n{}\r\n{}\r\n\r\n{}\n{}\n\n'.format(
-        '-----------START REQUEST-----------',
-        req.method + ' ' + req.url,
-        '\r\n'.join('{}: {}'.format(k, v) for k, v in req.headers.items()),
-        req.body,
-        '-----------STOP REQUEST------------'
-    )
-
-def printHTTPResponse( res, printContent = False ):
-    '''
-    Debug HTTP response
-    '''
-    return '{}\n{},\n\n{}\n\n{}\n\n{}'.format(
-        '---------START RESPONSE--------',
-        str(res.status_code) + ' ' + res.reason + ' ' + res.request.url,
-        res.content if printContent else '',
-        res.headers,
-        '---------STOP RESPONSE--------'
-    )
-
 def _verbose( show = False, msg = '', end = '\n' ):
     '''Show verbose message'''
     if show:
@@ -366,29 +342,26 @@ def downloadFile(
     }
     
     headers = {
-        'authority':      'www.y2mate.com',
+        'authority':      urlGetNetloc( getLinkURL ),
         'method':         'POST',
-        'path':           getLinkURL.split('.com')[1],
-        'scheme':         'https',
-        'content-type':   'application/x-www-form-urlencoded; charset=UTF-8',
-        'origin':         'https://wwwy2mate.com',
+        'path':           urlGetPath( getLinkURL ),
+        'scheme':         urlGetScheme( getLinkURL ),
+        'content-type':   getContentType( 'form' ),
+        'origin':         urlGetPath( getLinkURL ),
         'pragma':         'no-cache',
         'referer':        'https://y2mate.com/es/youtube/' + vID,
-        'user-agent':     'Mozilla/5.0 (X11; Linux x86_64) ' \
-            + ' AppleWebKit/537.36 ' \
-            + '(KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36',
+        'user-agent':     getChromeAgent(), 
         'x-request-with': 'XMLHttpRequest'
     } 
 
-    req = requests.Request( 'POST', getLinkURL, headers = headers, data = data )
-    prepared = req.prepare()
+    req = Request(
+        url = getLinkURL, method = 'POST', headers = headers, data = data, \
+        debug = debug
+    )
 
-    _debug( debug, printHTTP( prepared ) )
     _verbose( verbose, 'Status: Getting file download link...', end = '' ) 
 
-    s = requests.Session()
-    res = s.send( prepared, verify=True )
-    
+    res = req.do()
     if res.status_code == 200:
         parser = AdvancedHTMLParser.AdvancedHTMLParser()
         parser.parseStr( res.json()['result'] )
