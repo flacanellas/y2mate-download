@@ -229,13 +229,17 @@ def parseYoutubeDownloaderOptions( parser, verbose ):
     '''
     Parse data from Y2mate Youtube Downloader
     ''' 
-    
+
     # GET OPTIONS
     options = {}
     options['mp4'] = parseOptions( parser.getElementById('mp4') )
     options['mp3'] = parseOptions( parser.getElementById('mp3') )
     options['m4a'] = parseOptions( parser.getElementById('audio') )
-    
+
+    # CHECK FOR MP3 NO DATA
+    if len(options['mp3']) == 0:
+        del options['mp3']
+
     # FILTER AUDIO MP3 ITEMS (THERE PROBABLY REPEATED)
     options['m4a'] = list(
         filter(
@@ -252,6 +256,11 @@ def parseOptions( tab ):
     Process tab options table on result HTML when
     user paste video on download textbox at y2mate.com
     '''
+    
+    # WHEN TAB IS NONE THERE IS NO DATA
+    if tab is None:
+        return []
+
     # PARSE DATA
     parser = AdvancedHTMLParser.AdvancedHTMLParser()
     parser.parseStr( tab[0].innerHTML )
