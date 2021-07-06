@@ -268,8 +268,12 @@ def parseOptions( tab ):
 
         option['quality'] = tdList[2].getChildren()[index] \
             .getAttribute('data-fquality')
+        
+        # REPLACE p AND HFR strings ON quality INDEX
+        option['quality'] = option['quality'].replace('p', '')
+        option['quality'] = option['quality'].replace('HFR', '')
 
-        option['quality'] = int( option['quality'].replace('p', '') )
+        option['quality'] = int( option['quality'] )
         options.append( option )
 
     return options
