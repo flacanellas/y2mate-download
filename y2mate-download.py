@@ -68,6 +68,22 @@ def _debug( show = False, msg = '', end = '\n' ):
     if show:
         print( msg, end = end )
 
+def _ask_yes_not( msg = '' ):
+    while True:
+        answer = input( msg + ' [y/n]: ' ).lower()
+
+        if not answer in [ 'y', 'n' ]:
+            continue
+        else:
+            break
+    class Answer:
+        def __init__(self, y, n):
+            self.isYes = y
+            self.isNot= n
+
+
+    return Answer( answer == 'y', answer == 'n' )
+
 def getAudioFolderPath():
     '''
     Get audio folder path from Y2MATE_AUDIO_FOLDER
@@ -218,12 +234,13 @@ def parseYoutubeDownloaderOptions( parser, verbose ):
             del options[k]
 
     # FILTER AUDIO MP3 ITEMS (THERE PROBABLY REPEATED)
-    options['m4a'] = list(
-        filter(
-            (lambda e: e['type'] != 'mp3'),
-            options['m4a']
+    if 'm4a' in options:
+        options['m4a'] = list(
+            filter(
+                (lambda e: e['type'] != 'mp3'),
+                options['m4a']
+            )
         )
-    )
 
     _verbose( verbose, '[OK]' )
     return { 'options': options }
@@ -405,29 +422,40 @@ def downloadFile(
                 saveDir = getVideoFolderPath()
             filePath = saveDir + fileName
 
-        chunk = 1024 
+        chunk = 1024
+        downloadTimeout = 60
+        while True:
+            res = requests.get( fileLink, stream = True, timeout = downloadTimeout )
+            
+            # FILE NOT FOUND. SERVER ERROR
+            if res.status_code == 404:
+                _verbose( verbose, '[ERROR] HTTP 404!')
+                exit( '[Server Error]: File not found!' )
+            
+            # CLOUDFLARE 522 ERROR FIX
+            if res.status_code == 522:
+                _verbose( verbose, '[ERROR] HTTP 522!' )
+                print( '[Server Error]: HTTP 522 Connection timeout!' )
+                
+                # RETRY OPTION LOOP
+                answer = _ask_yes_not( '\nDo you want to retry?' )
 
-        res = requests.get( fileLink, stream = True )
-        
-        # FILE NOT FOUND. SERVER ERROR
-        if res.status_code == 404:
-            _verbose( verbose, '[ERROR]')
-            exit( '[Server Error]: File not found!' )
+                if answer.isNot:
+                    exit( 'bye!' )
+                else:
+                    _verbose( verbose, '[INFO] HTTP 522 Retryng!' )
+                    downloadTimeout += 60
+                    print( f'\nRetrying with timeout of {downloadTimeout} seconds...!' )
+                    continue
         
         # ASK FOR FILE OVERWRITE
         # ---------------------------------------------------------------------
         if path.exists( filePath ) and path.isfile( filePath ):
-            while True:
-                answer =  input(
-                    'File \'{}\' already exists, overwride? [y/n]: '.format( filePath )
-                ).lower()
-                
-                if not answer in [ 'y', 'n' ]:
-                    continue
-                else:
-                    break
+            answer = _ask_yes_not( 
+                'File \'{}\' already exists, overwride?'.format( filePath )
+            )
 
-            if answer == 'y':
+            if answer.isYes:
                 remove( filePath )
                 print( 'File \'{}\' deleted!'.format( filePath ) )
             # CHANGE FILE NAME FOR NOT OVERWRITE
@@ -443,6 +471,7 @@ def downloadFile(
         # ---------------------------------------------------------------------
         filePath = path.normpath( filePath )
         fileSize = int( res.headers.get( 'content-length', 0 ) )
+
         with open( filePath, 'wb' ) as f, tqdm(
             desc=fileName, total = fileSize, unit = 'iB', unit_scale = True,
             unit_divisor = chunk
