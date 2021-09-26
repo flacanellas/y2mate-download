@@ -387,6 +387,10 @@ def downloadFile(
         parser = AdvancedHTMLParser.AdvancedHTMLParser()
         parser.parseStr( res.json()['result'] )
 
+        # DETECT TO LONG VIDEO ERROR
+        if 'video is too long' in res.json()['result']:
+            exit( '[Error] Video is too long, try with shorter one!' )
+
         # GET DOWNLOAD LINK
         if len( parser.getElementsByTagName('a') ) == 0:
             exit( '[Error] something is wrong with download... try again!' )
@@ -446,10 +450,6 @@ def downloadFile(
             # DISABLE SSL WARNING
             reDownload.disableSSLVerification()
             res = reDownload.do()
-            #res = requests.get( \
-            #    fileLink, stream = True, timeout = downloadTimeout, \
-            #    verify = False, headers = { 'user-agent': getChromeAgent() } \
-            #    )
             
             # FILE NOT FOUND. SERVER ERROR
             if res.status_code == 404:
