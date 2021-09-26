@@ -155,7 +155,7 @@ def getOptions( vID, verbose = False, debug = False, mp3Convert = False ):
         'path':         urlGetPath( optionsURL ),
         'referer':      'https://www.y2mate.com/es/youtube/' + vID,
         'scheme':       urlGetScheme( optionsURL ),
-        'user-agent':   getChromeAgent() 
+        'User-Agent':   getChromeAgent() 
     }
     req = Request(
         url = optionsURL, method = 'POST', headers = headers, data = data, \
@@ -392,12 +392,16 @@ def downloadFile(
             exit( '[Error] something is wrong with download... try again!' )
         
         fileLink = parser.getElementsByTagName('a')[0].href
+        # FIX HTTPS => HTTP
+        if 'https' in fileLink:
+            fileLink = fileLink.replace( 'https', 'http' )
 
         _verbose( verbose, '[OK]' )
         
         # DOWNLOAD FILE
         # ---------------------------------------------------------------------
-        _verbose( verbose, 'Status: Downloading file...', end = '' )
+        _verbose( verbose, f'Status: File to download: \'{fileLink}\'' )
+        _verbose( verbose, 'Status: Tryng to downloading file...', end = '' )
 
         # REMOVE CHARACTERS
         fileName = fileName.replace( '/', '' ) \
@@ -425,7 +429,27 @@ def downloadFile(
         chunk = 1024
         downloadTimeout = 60
         while True:
-            res = requests.get( fileLink, stream = True, timeout = downloadTimeout )
+            # CONFIGURE DOWNLOAD
+            headers = {
+                'User-Agent': getChromeAgent(),
+                'authority': urlGetNetloc( fileLink ),
+                'Connection': 'Keep-Alive'
+            }
+            reDownload = Request(
+                url = fileLink, \
+                headers = headers, \
+                debug = debug, \
+                stream = True, \
+                timeout = downloadTimeout
+            )
+            
+            # DISABLE SSL WARNING
+            reDownload.disableSSLVerification()
+            res = reDownload.do()
+            #res = requests.get( \
+            #    fileLink, stream = True, timeout = downloadTimeout, \
+            #    verify = False, headers = { 'user-agent': getChromeAgent() } \
+            #    )
             
             # FILE NOT FOUND. SERVER ERROR
             if res.status_code == 404:
@@ -435,7 +459,7 @@ def downloadFile(
             # CLOUDFLARE 522 ERROR FIX
             if res.status_code == 522:
                 _verbose( verbose, '[ERROR] HTTP 522!' )
-                print( '[Server Error]: HTTP 522 Connection timeout!' )
+                print( '\n[Server Error]: HTTP 522 Connection timeout!' )
                 
                 # RETRY OPTION LOOP
                 answer = _ask_yes_not( '\nDo you want to retry?' )
@@ -447,7 +471,10 @@ def downloadFile(
                     downloadTimeout += 60
                     print( f'\nRetrying with timeout of {downloadTimeout} seconds...!' )
                     continue
-        
+            
+            # BREAK DOWNLOAD RETRYNG LOOP
+            if res.status_code == 200:
+                break
         # ASK FOR FILE OVERWRITE
         # ---------------------------------------------------------------------
         if path.exists( filePath ) and path.isfile( filePath ):

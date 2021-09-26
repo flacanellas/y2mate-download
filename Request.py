@@ -9,7 +9,7 @@ class Request:
 
     def __init__(
             self, method = 'GET', url = '', headers = {}, data = {}, \
-            session = None, debug = False \
+            session = None, debug = False, stream = False, timeout = 60 \
         ):
         self.__allowedMethods = ['GET', 'POST']
         self.__data     = data
@@ -18,6 +18,8 @@ class Request:
         self.__method   = method
         self.__session  = session
         self.__url      = url
+        self.__stream   = stream
+        self.__timeout  = timeout
         self.request  = None
         self.response = None
     
@@ -86,6 +88,13 @@ class Request:
             )
 
         print(debugText)
+    
+    def disableSSLVerification(self, hideWarnings  = True):
+        if hideWarnings:
+            requests.packages.urllib3.disable_warnings()
+
+        self.__session = requests.Session()
+        self.__session.verify = False
 
     def do(self):
         '''Do request and return the response'''
@@ -118,7 +127,8 @@ class Request:
         
         # SEND REQUEST
         self.response = self.__session \
-            .send( self.__preparedRequest, verify = True )
+            .send( self.__preparedRequest, verify = True, \
+                stream = self.__stream, timeout = self.__timeout )
 
         if self.__debug:
             self.debugResponse()
