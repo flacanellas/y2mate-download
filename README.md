@@ -1,7 +1,12 @@
+# IMPORTANT
+Y2mate service has been unestable this las time... you usually will get Clouflare HTTP 522 error, it's normal behaviour.
+<br>On future time on my next free weekend, i will start migrate process to **y2mate.is** service, until then, please be patient.
+<br>Thanks for your understanding.
+
 # y2mate-download
 Easy client script for download Youtube videos from Y2mate.com
 
-P.S. I love download Youtube videos from Y2mate but I feel lazy to use browser and deal with site ads.
+P.S. I love download Youtube videos from Y2mate but I feel lazy to use browser and deal with site ads. (Develop this was more fun than install ad-blocker).
 <br>
 P.S.2 'Readme' is english version only...
 
